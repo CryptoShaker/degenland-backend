@@ -1,0 +1,4 @@
+{
+  "mongoURI": "mongodb://localhost:27017/degenland",
+  "tokenExpiration": 360000
+}
