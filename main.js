@@ -44,8 +44,6 @@ io.on("connection", async (socket) => {
 //    let map = await MapPlacement.findOne({ address });
 
     let buildingList = await Building.find({ address: address });
-    console.log(buildingList);
-
     socket.emit("currentPlayers", players);
     socket.emit("mapInit", players[socket.id], buildingList);
     socket.broadcast.emit("newPlayer", players[socket.id]);
@@ -99,7 +97,6 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("setBuilding", async (building) => {
-    console.log(building);
     let newBuilding = new Building({
 			address: building.address,
 			pos: building.pos,
@@ -124,7 +121,6 @@ io.on("connection", async (socket) => {
           { remaintime: count - 1 },
           { new: true }
         );
-        console.log(count);
         socket.emit("buildingTime", build);
       }
 
