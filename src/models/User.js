@@ -20,6 +20,16 @@ const UserSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  movingState: {
+    type: Boolean,
+    required: true
+  },
+  targetx: {
+    type: Number
+  },
+  targety: {
+    type: Number
+  },
   date: {
     type: Date,
     default: Date.now

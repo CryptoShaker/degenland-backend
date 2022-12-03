@@ -1,8 +1,12 @@
 const mongoose = require('mongoose');
-const config = require('config');
-const db = config.get('mongoURI');
+const dbConfig = require('./config');
 
-console.log(db);
+const db = {};
+db.mongoose = mongoose;
+db.url = dbConfig.url;
+
+module.exports = db;
+/*
 const connectDB = async () => {
   try {
     console.log('MongoDB Connecting...');
@@ -16,4 +20,4 @@ const connectDB = async () => {
   }
 };
 
-module.exports = connectDB;
+module.exports = connectDB;*/
