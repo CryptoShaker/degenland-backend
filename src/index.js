@@ -6,15 +6,28 @@ const { Server } = require('socket.io');
 
 const api = require("./api");
 const db = require('./config/db');
-const MapPlacement = require('./models/MapPlacement');
+const Place = require('./models/Place');
 const Building = require('./models/Building');
 
 const fileUpload = require('express-fileupload');
 const bodyParser = require('body-parser');
 const morgan = require('morgan');
 const _ = require('lodash');
+const path = require("path");
 
-const accountApi = require("./api/account");
+
+// enable files upload
+app.use(fileUpload({
+  createParentPath: true
+}));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(morgan('dev'));
+app.use(cors());
+app.use("/api", api);
+app.use(express.static(path.resolve('uploads')));
+
+
 
 // DB connect
 db.mongoose
@@ -30,15 +43,6 @@ db.mongoose
     process.exit();
   });
 
-// enable files upload
-app.use(fileUpload({
-  createParentPath: true
-}));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(morgan('dev'));
-app.use(cors());
-app.use("/api", api);
 
 const server = http.createServer(app);
 
@@ -65,9 +69,19 @@ io.on("connection", async (socket) => {
       y: y,
       chatContent: ""
     };
-    //set x, y
 
-    //    let map = await MapPlacement.findOne({ address });
+    let place = await Place.findOne({ address: address });
+    if (!place) {
+      console.log("place");
+      let place = new Place({
+        address: address,
+        buildingCount: 0,
+        score: 0,
+        totalVisitor: 1,
+        currentVisitor: 1
+      });
+      await place.save();
+    }
 
     let buildingList = await Building.find({ address: address });
     socket.emit("currentPlayers", players);
@@ -130,10 +144,25 @@ io.on("connection", async (socket) => {
       built: building.built,
       remaintime: building.remaintime,
       ads: building.ads,
+      linkurl: '',
       owner: building.owner
     });
     // Save user to DB
     await newBuilding.save();
+
+    // Refresh place info
+    let place = await Place.findOne({ address: building.address });
+    if (place) {
+      place = await Place.findOneAndUpdate(
+        { address: building.address },
+        {
+          buildingCount: ++place.buildingCount,
+          score: place.score + 5
+        },
+        { new: true }
+      );
+    }
+
     socket.broadcast.emit("changeMap", newBuilding);
 
     let count = building.remaintime + 1;
@@ -205,14 +234,23 @@ io.on("connection", async (socket) => {
     }, 1000);
   });
 
-  socket.on("building_destroy", async (sno) => {
-    console.log(sno);
-    await Building.findOneAndRemove({ pos: sno });
+  socket.on("building_destroy", async (sno, address) => {
+    console.log(sno, address);
+    await Building.findOneAndRemove({ pos: sno, address: address });
     socket.broadcast.emit("building_destroy", sno);
+  });
+
+  socket.on("setLink", async (sno, address, url) => {
+    await Building.findOneAndUpdate(
+      { pos: sno, address: address },
+      { linkurl: url },
+      { new: true }
+    );
   });
 
   socket.on("disconnect", function () {
     console.log("user disconnected: ", socket.id);
+    socket.broadcast.emit("disconnected", players[socket.id]);
     delete players[socket.id];
     // emit a message to all players to remove this player
     socket.disconnect();
