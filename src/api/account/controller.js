@@ -23,7 +23,7 @@ exports.createNewPlayer = async (req_, res_) => {
     const c_newPlayerData = new Account({
         accountId: c_accountId,
         playerId: c_playerId,
-        avatarUrl: "avatars/" + c_avatarName
+        avatarUrl: "/avatars/" + c_avatarName
     });
 
     const c_insertNewResult = await c_newPlayerData.save();
@@ -79,10 +79,19 @@ exports.getPlayerInfo = async (req_, res_) => {
 
     const g_accountId = req_.query.accountId;
 
-    const g_findAccountId = await Account.find({ accountId: c_accountId });
-    console.log("uploadName log - 2 : ", c_findAccountId);
+    const g_findAccountId = await Account.findOne({ accountId: g_accountId });
+    console.log("uploadName log - 2 : ", g_findAccountId);
 
-    if (!g_findAccountId?.length > 0)
-        return res_.send({ result: false, error: "This account is already registered!" });
+    if (!g_findAccountId)
+        return res_.send({ result: false, error: "This account is not registered!" });
 
+    return res_.send({ result: true, data: g_findAccountId });
+}
+
+exports.getAllPlayerInfo = async (req_, res_) => {
+    const allAccount = await Account.find({});
+    if (!allAccount)
+        return res_.send({ result: false, error: "There is no player!" });
+
+    return res_.send({ result: true, data: allAccount });
 }

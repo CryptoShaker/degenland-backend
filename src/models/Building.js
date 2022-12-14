@@ -1,13 +1,11 @@
 const mongoose = require('mongoose');
 const BuildingSchema = new mongoose.Schema({
-  address: { type: String, required: true },
-  pos: { type: Number, required: true },
+  index: { type: Number, required: true },
   type: { type: String, required: true },
-  built: { type: Boolean, required: true },
-  remaintime: { type: Number, required: true },
-  ads: { type: String },
-  linkurl: { type: String },
-  owner: { type: String },
+  url: { type: String, required: true },
+  cost: { type: Number, required: true },
+  default: { type: Boolean, required: true },
+  size: { type: String, required: true },
   date: { type: Date, default: Date.now }
 });
 

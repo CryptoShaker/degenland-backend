@@ -4,6 +4,22 @@ const PlaceSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  pos: {
+    type: String,
+    required: true
+  },
+  token_id: {
+    type: String,
+    required: true
+  },
+  serialNumber: {
+    type: Number,
+    required: true
+  },
+  owner: {
+    type: String,
+    required: true
+  },
   buildingCount: {
     type: Number, 
     default: 0,
