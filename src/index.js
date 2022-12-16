@@ -12,6 +12,7 @@ const Place = require('./models/Place');
 const Placement = require('./models/Placement');
 const Building = require('./models/Building');
 const Account = require('./models/Account');
+const Notification = require('./models/Notification');
 
 const fileUpload = require('express-fileupload');
 const bodyParser = require('body-parser');
@@ -56,13 +57,77 @@ const io = new Server(server, {
   },
 });
 
-var players = {};
-
 // Add this
 // Listen for when the client connects via socket.io-client
 io.on("connection", async (socket) => {
   console.log("a user connected: ", socket.id);
 
+  // Invite friend
+  socket.on("inviteToFriend", async (fromId, toId, toPlayerId) => {
+    let fromIdInfo = await Account.findOne({ accountId: fromId });
+
+    if (fromIdInfo) {
+      let playerInfo = {
+        accountId: fromId,
+        playerId: fromIdInfo.playerId,
+        playerLvl: fromIdInfo.level,
+        lvlProcess: (fromIdInfo.currentLevelScore / fromIdInfo.targetLevelScore) * 100,
+        friendFlag: false,
+        aliveFlag: true,
+        avatarUrl: fromIdInfo.avatarUrl,
+        degenlandNftCount: fromIdInfo.degenlandCount,
+        tycoonNftCount: fromIdInfo.tycoonCount,
+        mogulNftCount: fromIdInfo.mogulCount,
+        investorNftCount: fromIdInfo.investorCount
+      };
+
+      let InviteInfo = new Notification({
+        accountId: toId,
+        playerId: toPlayerId,
+        alertType: 'invite friend',
+        playerInfo: playerInfo,
+      });
+      await InviteInfo.save();
+
+      //      socket.broadcast.emit('inviteSuccess', InviteInfo, InviteInfo._id);
+      let toIdInfo = await Account.findOne({ accountId: toId });
+      io.to(toIdInfo.socketId).emit('inviteSuccess', InviteInfo, InviteInfo._id);
+    }
+  });
+
+  //Accept invitation
+  socket.on("setAccept", async (id1, id2) => {
+    const toAccountId = id1;
+    const fromAccountId = id2;
+
+    await Notification.updateMany(
+      { accountId: toAccountId, 'playerInfo.accountId': fromAccountId, state: 'unread' },
+      { state: 'accepted' }
+    );
+
+    socket.emit("clearAcceptedNotification", toAccountId);
+
+    let fromIdInfo = await Account.findOne({ accountId: fromAccountId });
+    io.to(fromIdInfo.socketId).emit("alertAccepted", fromAccountId);
+  });
+
+  //Decline invitation
+  socket.on("setDecline", async (id1, id2) => {
+    const toAccountId = id1;
+    const fromAccountId = id2;
+
+    await Notification.updateMany(
+      { accountId: toAccountId, 'playerInfo.accountId': fromAccountId, state: 'unread' },
+      { state: 'declined' }
+    );
+
+    socket.emit("clearDeclinedNotification", toAccountId);
+
+    let fromIdInfo = await Account.findOne({ accountId: fromAccountId });
+    io.to(fromIdInfo.socketId).emit("alertDeclined", fromAccountId);
+  });
+
+  //phaser
   socket.on("map", async (accountId) => {
     await Account.findOneAndUpdate(
       { accountId: accountId },
@@ -75,7 +140,7 @@ io.on("connection", async (socket) => {
 
   socket.on("join", async (mode, address, targetPos, x, y, n, m, accountId) => {
     // view mode
-    if(mode == 'view') {
+    if (mode == 'view') {
       let player = await Account.findOneAndUpdate(
         { accountId: accountId },
         {
@@ -90,7 +155,7 @@ io.on("connection", async (socket) => {
         },
         { new: true }
       );
-  
+
       let place = await Place.findOne({ address: address, pos: targetPos });
       await Place.findOneAndUpdate(
         { address: place.address, pos: place.pos },
@@ -105,13 +170,13 @@ io.on("connection", async (socket) => {
 
       // Get players in the same address
       let players = await Account.find({ address: address });
-  
+
       let buildingList = await Placement.find({ address: address });
       socket.emit("currentPlayers", players);
       socket.emit("mapInit", player, buildingList);
       socket.broadcast.emit("newPlayer", player);
     }
-    else if(mode == 'construction') {
+    else if (mode == 'construction') {
       // construction mode
       let buildingList = await Placement.find({ address: address });
       socket.emit("mapInit", buildingList);
@@ -119,12 +184,12 @@ io.on("connection", async (socket) => {
   });
 
   // Get building Info
-  socket.on('getBuildingInfo', async() => {
+  socket.on('getBuildingInfo', async () => {
     let buildingInfo = await Building.find({});
 
-    if(buildingInfo.length == 0) {
-      for(let i = 0;i <= 87;i++) {
-        if(i >= 0 && i <= 6) {
+    if (buildingInfo.length == 0) {
+      for (let i = 0; i <= 87; i++) {
+        if (i >= 0 && i <= 6) {
           buildingInfo = new Building({
             index: i,
             type: 'ground',
@@ -134,7 +199,7 @@ io.on("connection", async (socket) => {
             cost: 0
           });
         }
-        else if(i >= 7 && i <= 56) {
+        else if (i >= 7 && i <= 56) {
           buildingInfo = new Building({
             index: i,
             type: 'road',
@@ -146,11 +211,11 @@ io.on("connection", async (socket) => {
         }
         else {
           let buildingSize;
-          if(i >= 73 && i <= 86)
+          if (i >= 73 && i <= 86)
             buildingSize = '2*2';
           else
             buildingSize = '1*1';
-          
+
           buildingInfo = new Building({
             index: i,
             type: 'building',
@@ -168,6 +233,8 @@ io.on("connection", async (socket) => {
   });
 
   socket.on('getPlaceInfo', async (address, pos, nftdata) => {
+    let placeOwner = await Account.findOne({ accountId: nftdata.owner });
+
     let place = await Place.findOne({ address: address, pos: pos });
     if (!place) {
       place = new Place({
@@ -176,12 +243,22 @@ io.on("connection", async (socket) => {
         token_id: nftdata.token_id,
         serialNumber: nftdata.serial_number,
         owner: nftdata.owner,
+        avatarUrl: placeOwner.avatarUrl,
         buildingCount: 0,
         score: 0,
         totalVisitor: 0,
         currentVisitor: 0
       });
       await place.save();
+    }
+    else {
+      place = await Place.findOneAndUpdate(
+        { address: address, pos: pos },
+        {
+          avatarUrl: placeOwner.avatarUrl,
+        },
+        { new: true }
+      )
     }
 
     socket.emit('sendPlaceInfo', place);
@@ -204,7 +281,7 @@ io.on("connection", async (socket) => {
     socket.broadcast.emit("playerMoved", player, tilem, tilen);
   });
 
-  socket.on("playerPosition", async(posInfo, n, m, accountId) => {
+  socket.on("playerPosition", async (posInfo, n, m, accountId) => {
     console.log(n, m, accountId);
     let player = await Account.findOneAndUpdate(
       { accountId: accountId },
@@ -222,6 +299,7 @@ io.on("connection", async (socket) => {
     let newBuilding = new Placement({
       address: building.address,
       pos: building.pos,
+      sno: building.sno,
       type: building.type,
       built: building.built,
       remaintime: building.remaintime,
@@ -237,6 +315,7 @@ io.on("connection", async (socket) => {
     let newBuilding = new Placement({
       address: building.address,
       pos: building.pos,
+      sno: building.sno,
       type: building.type,
       built: building.built,
       remaintime: building.remaintime,
@@ -248,10 +327,10 @@ io.on("connection", async (socket) => {
     await newBuilding.save();
 
     // Refresh place info
-    let place = await Place.findOne({ address: building.address });
+    let place = await Place.findOne({ address: building.address, pos: building.pos });
     if (place) {
       place = await Place.findOneAndUpdate(
-        { address: building.address },
+        { address: building.address, pos: building.pos },
         {
           buildingCount: ++place.buildingCount,
           score: place.score + 5
@@ -266,10 +345,10 @@ io.on("connection", async (socket) => {
     let interval = setInterval(async () => {
       count--;
 
-      let build = await Placement.findOne({ address: building.address, pos: building.pos, type: building.type });
+      let build = await Placement.findOne({ address: building.address, sno: building.sno, type: building.type });
       if (build) {
         build = await Placement.findOneAndUpdate(
-          { address: building.address, pos: building.pos, type: building.type },
+          { address: building.address, sno: building.sno, type: building.type },
           { remaintime: count - 1 },
           { new: true }
         );
@@ -280,15 +359,15 @@ io.on("connection", async (socket) => {
        * building completion
        */
       if (count == 1) {
-        let build = await Placement.findOne({ address: building.address, pos: building.pos, type: building.type });
+        let build = await Placement.findOne({ address: building.address, sno: building.sno, type: building.type });
         if (build) {
           build = await Placement.findOneAndUpdate(
-            { address: building.address, pos: building.pos, type: building.type },
+            { address: building.address, sno: building.sno, type: building.type },
             { built: true },
             { new: true }
           );
         }
-        io.emit("buildingCompletion", players[socket.id], build);
+        io.emit("buildingCompletion", build);
         clearInterval(interval);
       }
     }, 1000);
@@ -302,10 +381,10 @@ io.on("connection", async (socket) => {
     let interval = setInterval(async () => {
       count--;
 
-      let build = await Placement.findOne({ address: building.address, pos: building.pos, type: building.type });
+      let build = await Placement.findOne({ address: building.address, sno: building.sno, type: building.type });
       if (build) {
         build = await Placement.findOneAndUpdate(
-          { address: building.address, pos: building.pos, type: building.type },
+          { address: building.address, sno: building.sno, type: building.type },
           { remaintime: count - 1 },
           { new: true }
         );
@@ -319,10 +398,10 @@ io.on("connection", async (socket) => {
 
         clearInterval(interval);
         io.emit("in-buildingCompletion", building);
-        let build = await Placement.findOne({ address: building.address, pos: building.pos, type: building.type });
+        let build = await Placement.findOne({ address: building.address, sno: building.sno, type: building.type });
         if (build) {
           build = await Placement.findOneAndUpdate(
-            { address: building.address, pos: building.pos, type: building.type },
+            { address: building.address, sno: building.sno, type: building.type },
             { built: true },
             { new: true }
           );
@@ -332,44 +411,48 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("building_destroy", async (sno, address) => {
-    await Placement.findOneAndRemove({ pos: sno, address: address });
+    await Placement.findOneAndRemove({ sno: sno, address: address });
     socket.broadcast.emit("building_destroy", address, sno);
   });
 
   socket.on("setLink", async (sno, address, url) => {
     await Placement.findOneAndUpdate(
-      { pos: sno, address: address },
+      { sno: sno, address: address },
       { linkurl: url },
       { new: true }
     );
   });
 
   socket.on("disconnect", async () => {
-/*    let player = await Account.findOneAndUpdate(
-      { socketId: socket.id },
-      {
-        address: '',
-        targetPos: 0,
-        x: 0,
-        y: 0,
-        n: 0,
-        m: 0,
-        socketId: '',
-        connectState: false
-      }
-    );
+    console.log("user disconnected: ");
+    if (socket.id != null) {
+      let player = await Account.findOneAndUpdate(
+        { socketId: socket.id },
+        {
+          address: '',
+          targetPos: 0,
+          x: 0,
+          y: 0,
+          n: 0,
+          m: 0,
+          socketId: '',
+          connectState: false
+        }
+      );
 
-    console.log("user disconnected: ", player.accountId);
-    // Refresh place info
-/*    place = await Place.findOneAndUpdate(
-      { address: place.address, pos: place.pos },
-      {
-        currentVisitor: --place.currentVisitor
-      },
-      { new: true }
-    );*/
-/*    socket.broadcast.emit("disconnected", player);*/
-    // emit a message to all players to remove this player
+      if (player != null) {
+        console.log("user disconnected: ", player.accountId);
+        // Refresh place info
+        /*    place = await Place.findOneAndUpdate(
+              { address: place.address, pos: place.pos },
+              {
+                currentVisitor: --place.currentVisitor
+              },
+              { new: true }
+            );*/
+        socket.broadcast.emit("disconnected", player);
+      }
+    }
     socket.disconnect();
   });
 });

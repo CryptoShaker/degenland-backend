@@ -1,5 +1,6 @@
 const { createHash } = require('crypto');
 const Account = require('../../models/Account');
+const sharp = require('sharp');
 
 exports.createNewPlayer = async (req_, res_) => {
     console.log("uploadName log - 1 : ", req_.body);
@@ -7,6 +8,8 @@ exports.createNewPlayer = async (req_, res_) => {
     const c_accountId = req_.body.accountId;
     const c_playerId = req_.body.playerId;
     const c_avatarName = req_.body.avatarName;
+    const c_phaserAvatarName = req_.body.phaserAvatarName;
+    const c_walletInfo = req_.body.walletInfo;
 
     const c_findAccountId = await Account.find({ accountId: c_accountId });
     console.log("uploadName log - 2 : ", c_findAccountId);
@@ -23,7 +26,12 @@ exports.createNewPlayer = async (req_, res_) => {
     const c_newPlayerData = new Account({
         accountId: c_accountId,
         playerId: c_playerId,
-        avatarUrl: "/avatars/" + c_avatarName
+        avatarUrl: "/avatars/" + c_avatarName,
+        phaserAvatarUrl: "/avatars/" + c_phaserAvatarName,
+        degenlandCount: c_walletInfo.degenlandCount,
+        tycoonCount: c_walletInfo.tycoonCount,
+        mogulCount: c_walletInfo.mogulCount,
+        investorCount: c_walletInfo.investorCount
     });
 
     const c_insertNewResult = await c_newPlayerData.save();
@@ -54,13 +62,16 @@ exports.uploadAvatar = async (req_, res_) => {
             const u_newName = u_hashStr + "." + u_ext;
 
             //Use the mv() method to place the file in the upload directory (i.e. "uploads")
-            u_avatar.mv(`./uploads/avatars/` + u_newName);
+            await u_avatar.mv(`./uploads/avatars/` + u_newName);
+
+            await sharp(`./uploads/avatars/` + u_newName).resize(128, 128).toFile(`./uploads/avatars/` + u_newName.split('.')[0] + '_phaser.png', (err, info) => {});
 
             //send response
             res_.send({
                 result: true,
                 data: {
                     name: u_newName,
+                    phaser_name: u_newName.split('.')[0] + '_phaser.png',
                     mimetype: u_avatar.mimetype,
                     size: u_avatar.size
                 }
@@ -72,6 +83,35 @@ exports.uploadAvatar = async (req_, res_) => {
             message: 'Something wrong.'
         });
     }
+}
+
+exports.setFriend = async (req_, res_) => {
+    console.log("setFriend", req_.body.id1, req_.body.id2);
+    const fromAccountId = req_.body.id1;
+    const toAccountId = req_.body.id2;
+
+    const oldfromAccount = await Account.findOne({ accountId: fromAccountId });
+    oldfromAccount.friendList.push(toAccountId);
+
+    const fromAccount = await Account.findOneAndUpdate(
+        { accountId: fromAccountId },
+        { friendList: oldfromAccount.friendList },
+        { new: true }
+    );
+
+    const oldtoAccount = await Account.findOne({ accountId: toAccountId });
+    oldtoAccount.friendList.push(fromAccountId);
+
+    const toAccount = await Account.findOneAndUpdate(
+        { accountId: toAccountId },
+        { friendList: oldtoAccount.friendList },
+        { new: true }
+    );
+
+    if (!toAccount)
+        return res_.send({ result: false, error: "Something wrong to set friend" });
+
+    return res_.send({ result: true, data: toAccount });
 }
 
 exports.getPlayerInfo = async (req_, res_) => {

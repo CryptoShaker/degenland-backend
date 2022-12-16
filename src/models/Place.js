@@ -20,6 +20,10 @@ const PlaceSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  avatarUrl: {
+    type: String,
+    required: true
+  },
   buildingCount: {
     type: Number, 
     default: 0,

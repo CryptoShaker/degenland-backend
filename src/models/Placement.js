@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 const PlacementSchema = new mongoose.Schema({
   address: { type: String, required: true },
-  pos: { type: Number, required: true },
+  pos: { type: String, required: true },
+  sno: { type: Number, required: true },
   type: { type: String, required: true },
   built: { type: Boolean, required: true },
   remaintime: { type: Number, required: true },

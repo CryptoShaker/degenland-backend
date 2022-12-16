@@ -2,6 +2,7 @@ const Place = require('../../models/Place');
 
 exports.decreaseVisitor = async (req, res) => {
   try {
+    console.log(req.body.address, req.body.pos);
     if (!req.body.address || !req.body.pos) {
         res.send({
           status: false,
@@ -9,6 +10,7 @@ exports.decreaseVisitor = async (req, res) => {
         });
     } else {
       let place = await Place.findOne({ address: req.body.address, pos: req.body.pos });
+      console.log(place.currentVisitor);
 
       place = await Place.findOneAndUpdate(
         { address: req.body.address, pos: req.body.pos },
