@@ -1,6 +1,7 @@
 const { createHash } = require('crypto');
 const Account = require('../../models/Account');
 const sharp = require('sharp');
+const sortJsonArray = require('sort-json-array');
 
 exports.createNewPlayer = async (req_, res_) => {
     console.log("uploadName log - 1 : ", req_.body);
@@ -17,9 +18,12 @@ exports.createNewPlayer = async (req_, res_) => {
     if (c_findAccountId?.length > 0)
         return res_.send({ result: false, error: "This account is already registered!" });
 
+    if(c_playerId.length > 15)
+        return res_.send({ result: false, error: "This player Id' max length is 15 character!" });
+
     const c_findPlayerId = await Account.find({ playerId: c_playerId });
     console.log("uploadName log - 3 : ", c_findPlayerId);
-
+    
     if (c_findPlayerId?.length > 0)
         return res_.send({ result: false, error: "This player Id is already used!" });
 
@@ -126,6 +130,30 @@ exports.getPlayerInfo = async (req_, res_) => {
         return res_.send({ result: false, error: "This account is not registered!" });
 
     return res_.send({ result: true, data: g_findAccountId });
+}
+
+exports.getFriendList = async (req_, res_) => {
+    console.log("getFriendList log - 1 : ", req_.query);
+    const g_accountId = req_.query.accountId;
+    const g_searchStr = req_.query.searchStr;
+    const g_sortType = req_.query.sortType;
+
+    const g_accountData = await Account.findOne({ accountId: g_accountId });
+
+    const friendList = [];
+    for(let i = 0;i < g_accountData.friendList.length;i++) {
+        let friendData = undefined;
+        if(g_searchStr == '')
+            friendData = await Account.findOne({ accountId: g_accountData.friendList[i] });
+        else
+            friendData = await Account.findOne({ accountId: g_accountData.friendList[i], playerId: {$regex : g_searchStr} });
+        if(friendData != null)
+            friendList.push(friendData);
+    }
+    
+    if(g_sortType != 'none')
+        sortJsonArray(friendList, 'playerId', g_sortType);
+    return res_.send({ result: true, data: friendList });
 }
 
 exports.getAllPlayerInfo = async (req_, res_) => {

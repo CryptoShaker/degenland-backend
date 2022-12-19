@@ -101,7 +101,7 @@ io.on("connection", async (socket) => {
     const fromAccountId = id2;
 
     await Notification.updateMany(
-      { accountId: toAccountId, 'playerInfo.accountId': fromAccountId, state: 'unread' },
+      { alertType: 'invite friend', accountId: toAccountId, 'playerInfo.accountId': fromAccountId, state: 'unread' },
       { state: 'accepted' }
     );
 
@@ -117,7 +117,7 @@ io.on("connection", async (socket) => {
     const fromAccountId = id2;
 
     await Notification.updateMany(
-      { accountId: toAccountId, 'playerInfo.accountId': fromAccountId, state: 'unread' },
+      { alertType: 'invite friend', accountId: toAccountId, 'playerInfo.accountId': fromAccountId, state: 'unread' },
       { state: 'declined' }
     );
 
@@ -125,6 +125,37 @@ io.on("connection", async (socket) => {
 
     let fromIdInfo = await Account.findOne({ accountId: fromAccountId });
     io.to(fromIdInfo.socketId).emit("alertDeclined", fromAccountId);
+  });
+
+  //Send private message
+  socket.on("sendPrivateMsg", async(fromId, toId, toPlayerId, val) => {
+    let fromIdInfo = await Account.findOne({ accountId: fromId });
+
+    if (fromIdInfo) {
+      let playerInfo = {
+        accountId: fromId,
+        playerId: fromIdInfo.playerId,
+        playerLvl: fromIdInfo.level,
+        lvlProcess: (fromIdInfo.currentLevelScore / fromIdInfo.targetLevelScore) * 100,
+        friendFlag: false,
+        aliveFlag: true,
+        avatarUrl: fromIdInfo.avatarUrl,
+        degenlandNftCount: fromIdInfo.degenlandCount,
+        tycoonNftCount: fromIdInfo.tycoonCount,
+        mogulNftCount: fromIdInfo.mogulCount,
+        investorNftCount: fromIdInfo.investorCount
+      };
+      let privateMsgInfo = new Notification({
+        accountId: toId,
+        playerId: toPlayerId,
+        alertType: 'private message',
+        playerInfo: playerInfo,
+      });
+      await privateMsgInfo.save();
+
+      let toIdInfo = await Account.findOne({ accountId: toId });
+      io.to(toIdInfo.socketId).emit('receivePrivateMsg', privateMsgInfo, val);
+    }
   });
 
   //phaser
@@ -172,8 +203,8 @@ io.on("connection", async (socket) => {
       let players = await Account.find({ address: address });
 
       let buildingList = await Placement.find({ address: address });
-      socket.emit("currentPlayers", players);
       socket.emit("mapInit", player, buildingList);
+      socket.emit("currentPlayers", players);
       socket.broadcast.emit("newPlayer", player);
     }
     else if (mode == 'construction') {

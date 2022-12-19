@@ -2186,6 +2186,11 @@
     "ip" "^2.0.0"
     "smart-buffer" "^4.2.0"
 
+"sort-json-array@^0.1.7":
+  "integrity" "sha512-N1O13vqQLfTXSMEY7Ax5IzMLLDLn9KVdGYVsc4o9tpbqimBPl8vOh9XnnfyAW9XFGEDBUSl7rlYKPmjX2Bk2eg=="
+  "resolved" "https://registry.npmjs.org/sort-json-array/-/sort-json-array-0.1.7.tgz"
+  "version" "0.1.7"
+
 "sparse-bitfield@^3.0.3":
   "integrity" "sha512-kvzhi7vqKTfkh0PZU+2D2PIllw2ymqJKujUcyPMd9Y75Nv4nPbGJZXNhxsgdQab2BmlDct1YnfQCguEvHr7VsQ=="
   "resolved" "https://registry.npmjs.org/sparse-bitfield/-/sparse-bitfield-3.0.3.tgz"
