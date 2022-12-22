@@ -1,7 +1,10 @@
 const { createHash } = require('crypto');
-const Account = require('../../models/Account');
 const sharp = require('sharp');
 const sortJsonArray = require('sort-json-array');
+
+const Account = require('../../models/Account');
+const NftList = require('../../models/NftList');
+const Place = require('../../models/Place');
 
 exports.createNewPlayer = async (req_, res_) => {
     console.log("uploadName log - 1 : ", req_.body);
@@ -18,12 +21,12 @@ exports.createNewPlayer = async (req_, res_) => {
     if (c_findAccountId?.length > 0)
         return res_.send({ result: false, error: "This account is already registered!" });
 
-    if(c_playerId.length > 15)
+    if (c_playerId.length > 15)
         return res_.send({ result: false, error: "This player Id' max length is 15 character!" });
 
     const c_findPlayerId = await Account.find({ playerId: c_playerId });
     console.log("uploadName log - 3 : ", c_findPlayerId);
-    
+
     if (c_findPlayerId?.length > 0)
         return res_.send({ result: false, error: "This player Id is already used!" });
 
@@ -68,7 +71,7 @@ exports.uploadAvatar = async (req_, res_) => {
             //Use the mv() method to place the file in the upload directory (i.e. "uploads")
             await u_avatar.mv(`./uploads/avatars/` + u_newName);
 
-            await sharp(`./uploads/avatars/` + u_newName).resize(128, 128).toFile(`./uploads/avatars/` + u_newName.split('.')[0] + '_phaser.png', (err, info) => {});
+            await sharp(`./uploads/avatars/` + u_newName).resize(128, 128).toFile(`./uploads/avatars/` + u_newName.split('.')[0] + '_phaser.png', (err, info) => { });
 
             //send response
             res_.send({
@@ -97,18 +100,56 @@ exports.setFriend = async (req_, res_) => {
     const oldfromAccount = await Account.findOne({ accountId: fromAccountId });
     oldfromAccount.friendList.push(toAccountId);
 
-    const fromAccount = await Account.findOneAndUpdate(
+    // Manage level
+    let level = oldfromAccount.level;
+    let nextLevel = oldfromAccount.nextLevel;
+    let currentLevelScore = oldfromAccount.currentLevelScore;
+    let targetLevelScore = oldfromAccount.targetLevelScore;
+    currentLevelScore += 50;
+    if (currentLevelScore >= targetLevelScore) {
+        level++;
+        nextLevel++;
+        currentLevelScore -= targetLevelScore;
+        targetLevelScore += 50;
+    }
+
+    await Account.findOneAndUpdate(
         { accountId: fromAccountId },
-        { friendList: oldfromAccount.friendList },
+        {
+            friendList: oldfromAccount.friendList,
+            level: level,
+            nextLevel: nextLevel,
+            currentLevelScore: currentLevelScore,
+            targetLevelScore: targetLevelScore
+        },
         { new: true }
     );
 
     const oldtoAccount = await Account.findOne({ accountId: toAccountId });
     oldtoAccount.friendList.push(fromAccountId);
 
+    // Manage level
+    level = oldtoAccount.level;
+    nextLevel = oldtoAccount.nextLevel;
+    currentLevelScore = oldtoAccount.currentLevelScore;
+    targetLevelScore = oldtoAccount.targetLevelScore;
+    currentLevelScore += 50;
+    if (currentLevelScore >= targetLevelScore) {
+        level++;
+        nextLevel++;
+        currentLevelScore -= targetLevelScore;
+        targetLevelScore += 50;
+    }
+
     const toAccount = await Account.findOneAndUpdate(
         { accountId: toAccountId },
-        { friendList: oldtoAccount.friendList },
+        {
+            friendList: oldtoAccount.friendList,
+            level: level,
+            nextLevel: nextLevel,
+            currentLevelScore: currentLevelScore,
+            targetLevelScore: targetLevelScore
+        },
         { new: true }
     );
 
@@ -141,17 +182,17 @@ exports.getFriendList = async (req_, res_) => {
     const g_accountData = await Account.findOne({ accountId: g_accountId });
 
     const friendList = [];
-    for(let i = 0;i < g_accountData.friendList.length;i++) {
+    for (let i = 0; i < g_accountData.friendList.length; i++) {
         let friendData = undefined;
-        if(g_searchStr == '')
+        if (g_searchStr == '')
             friendData = await Account.findOne({ accountId: g_accountData.friendList[i] });
         else
-            friendData = await Account.findOne({ accountId: g_accountData.friendList[i], playerId: {$regex : g_searchStr} });
-        if(friendData != null)
+            friendData = await Account.findOne({ accountId: g_accountData.friendList[i], playerId: { $regex: g_searchStr } });
+        if (friendData != null)
             friendList.push(friendData);
     }
-    
-    if(g_sortType != 'none')
+
+    if (g_sortType != 'none')
         sortJsonArray(friendList, 'playerId', g_sortType);
     return res_.send({ result: true, data: friendList });
 }
@@ -162,4 +203,52 @@ exports.getAllPlayerInfo = async (req_, res_) => {
         return res_.send({ result: false, error: "There is no player!" });
 
     return res_.send({ result: true, data: allAccount });
+}
+
+exports.updatePlayerInfo = async (req_, res_) => {
+    const g_accountId = req_.query.accountId;
+    const playerInfo = await Account.findOne({ accountId: g_accountId });
+    return res_.send({ result: true, data: playerInfo });
+}
+
+exports.calculateLevel = async (req_, res_) => {
+    const g_accountId = req_.query.accountId;
+
+    const playerInfo = await Account.findOne({ accountId: g_accountId });
+    let level = 1;
+    let nextLevel = 2;
+    let currentLevelScore = 0;
+    let targetLevelScore = 50;
+    // calculate place score
+    const nftlist = await NftList.find({ owner: playerInfo.accountId });
+
+    for (let i = 0; i < nftlist.length; i++) {
+        const placeInfo = await Place.findOne({ token_id: nftlist[i].token_id, serialNumber: nftlist[i].serial_number });
+        currentLevelScore += placeInfo.score;
+    }
+
+    // calculate friend info
+    for(let i = 0;i < playerInfo.friendList.length;i++) {
+        currentLevelScore += 50;
+    }
+
+    while (targetLevelScore <= currentLevelScore) {
+        level++;
+        nextLevel++;
+        currentLevelScore -= targetLevelScore;
+        targetLevelScore += 50;
+    }
+
+    const newPlayerInfo = await Account.findOneAndUpdate(
+        { accountId: g_accountId },
+        {
+            level: level,
+            nextLevel: nextLevel,
+            currentLevelScore: currentLevelScore,
+            targetLevelScore: targetLevelScore
+        },
+        { new: true }
+    );
+
+    return res_.send({ result: true, data: newPlayerInfo });
 }

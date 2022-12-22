@@ -4,8 +4,10 @@ const BuildingSchema = new mongoose.Schema({
   type: { type: String, required: true },
   url: { type: String, required: true },
   cost: { type: Number, required: true },
+  score: { type: Number, required: true },
   default: { type: Boolean, required: true },
   size: { type: String, required: true },
+  buildtime: { type: Number, default: 0 },
   date: { type: Date, default: Date.now }
 });
 

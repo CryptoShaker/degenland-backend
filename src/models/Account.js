@@ -21,7 +21,8 @@ const AccountSchema = new mongoose.Schema({
     tycoonCount: {type: Number, default: 0},
     mogulCount: {type: Number, default: 0},
     investorCount: {type: Number, default: 0},
-    connectState: {type: Boolean, default: false}
+    connectState: {type: Boolean, default: false},
+    date: { type: Date, default: Date.now }
 }, { timestamps: true });
 
 module.exports = User = mongoose.model('Account', AccountSchema);

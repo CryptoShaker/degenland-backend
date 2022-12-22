@@ -2,11 +2,11 @@ const mongoose = require('mongoose');
 const PlaceSchema = new mongoose.Schema({
   address: {
     type: String,
-    required: true
+    default: ''
   },
   pos: {
     type: String,
-    required: true
+    default: ''
   },
   token_id: {
     type: String,
@@ -18,31 +18,27 @@ const PlaceSchema = new mongoose.Schema({
   },
   owner: {
     type: String,
-    required: true
+    default: ''
   },
   avatarUrl: {
     type: String,
-    required: true
+    default: ''
   },
   buildingCount: {
     type: Number, 
     default: 0,
-    required: true
   },
   score: {
     type: Number,
     default: 0,
-    required: true
   },
   totalVisitor: {
     type: Number,
     default: 0,
-    required: true
   },
   currentVisitor: {
     type: Number,
     default: 0,
-    required: true
   },
   date: {
     type: Date,

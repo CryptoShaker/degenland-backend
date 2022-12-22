@@ -17,7 +17,8 @@ const NotificationSchema = new mongoose.Schema({
     investorNftCount: { type: Number, required: true }
   },
   message: { type: String, default: '' },
-  state: { type: String, required: true, default: 'unread' }
+  state: { type: String, required: true, default: 'unread' },
+  date: { type: Date, default: Date.now }
 });
 
 module.exports = User = mongoose.model('Notification', NotificationSchema);

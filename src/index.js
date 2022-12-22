@@ -6,6 +6,9 @@ const { Server } = require('socket.io');
 
 const api = require("./api");
 
+//socket
+const Init = require('./socket_io/onInit');
+
 //db
 const db = require('./config/db');
 const Place = require('./models/Place');
@@ -61,6 +64,11 @@ const io = new Server(server, {
 // Listen for when the client connects via socket.io-client
 io.on("connection", async (socket) => {
   console.log("a user connected: ", socket.id);
+
+  /**
+   * db init
+   */
+  //  Init.onInit(io, socket);
 
   // Invite friend
   socket.on("inviteToFriend", async (fromId, toId, toPlayerId) => {
@@ -128,7 +136,7 @@ io.on("connection", async (socket) => {
   });
 
   //Send private message
-  socket.on("sendPrivateMsg", async(fromId, toId, toPlayerId, val) => {
+  socket.on("sendPrivateMsg", async (fromId, toId, toPlayerId, val) => {
     let fromIdInfo = await Account.findOne({ accountId: fromId });
 
     if (fromIdInfo) {
@@ -158,7 +166,14 @@ io.on("connection", async (socket) => {
     }
   });
 
-  //phaser
+  //Send offer
+  socket.on("sendOffer", async (offerInfo) => {
+    console.log("---------------------------sendOffer----------------------------");
+    console.log(offerInfo);
+  });
+
+  //--------------------------------------------------------
+  // Phaser
   socket.on("map", async (accountId) => {
     await Account.findOneAndUpdate(
       { accountId: accountId },
@@ -187,12 +202,12 @@ io.on("connection", async (socket) => {
         { new: true }
       );
 
+      // Calculate score
       let place = await Place.findOne({ address: address, pos: targetPos });
       await Place.findOneAndUpdate(
         { address: place.address, pos: place.pos },
         {
-          buildingCount: place.buildingCount,
-          score: place.score + 5,
+          score: place.score + 10,
           totalVisitor: ++place.totalVisitor,
           currentVisitor: ++place.currentVisitor
         },
@@ -203,13 +218,19 @@ io.on("connection", async (socket) => {
       let players = await Account.find({ address: address });
 
       let buildingList = await Placement.find({ address: address });
+      socket.join(address);
       socket.emit("mapInit", player, buildingList);
       socket.emit("currentPlayers", players);
-      socket.broadcast.emit("newPlayer", player);
+      socket.broadcast.to(address).emit("newPlayer", player);
     }
     else if (mode == 'construction') {
       // construction mode
       let buildingList = await Placement.find({ address: address });
+      socket.join(address);
+      /*
+            socket.join(address);
+            socket.broadcast.to(address).emit("updateMap", buildingList);
+      */
       socket.emit("mapInit", buildingList);
     }
   });
@@ -217,99 +238,24 @@ io.on("connection", async (socket) => {
   // Get building Info
   socket.on('getBuildingInfo', async () => {
     let buildingInfo = await Building.find({});
-
-    if (buildingInfo.length == 0) {
-      for (let i = 0; i <= 87; i++) {
-        if (i >= 0 && i <= 6) {
-          buildingInfo = new Building({
-            index: i,
-            type: 'ground',
-            url: '/buildings/ground/g(' + i + ').png',
-            default: true,
-            size: '1*1',
-            cost: 0
-          });
-        }
-        else if (i >= 7 && i <= 56) {
-          buildingInfo = new Building({
-            index: i,
-            type: 'road',
-            url: '/buildings/road/r (' + (i - 6) + ').png',
-            default: true,
-            size: '1*1',
-            cost: 0
-          });
-        }
-        else {
-          let buildingSize;
-          if (i >= 73 && i <= 86)
-            buildingSize = '2*2';
-          else
-            buildingSize = '1*1';
-
-          buildingInfo = new Building({
-            index: i,
-            type: 'building',
-            url: '/buildings/building/b (' + (i - 56) + ').png',
-            default: true,
-            size: buildingSize,
-            cost: 0
-          });
-        }
-        await buildingInfo.save();
-      }
-      buildingInfo = await Building.find({});
-    }
     socket.emit("setBuildingInfo", buildingInfo);
   });
 
-  socket.on('getPlaceInfo', async (address, pos, nftdata) => {
-    let placeOwner = await Account.findOne({ accountId: nftdata.owner });
-
-    let place = await Place.findOne({ address: address, pos: pos });
-    if (!place) {
-      place = new Place({
-        address: address,
-        pos: pos,
-        token_id: nftdata.token_id,
-        serialNumber: nftdata.serial_number,
-        owner: nftdata.owner,
-        avatarUrl: placeOwner.avatarUrl,
-        buildingCount: 0,
-        score: 0,
-        totalVisitor: 0,
-        currentVisitor: 0
-      });
-      await place.save();
-    }
-    else {
-      place = await Place.findOneAndUpdate(
-        { address: address, pos: pos },
-        {
-          avatarUrl: placeOwner.avatarUrl,
-        },
-        { new: true }
-      )
-    }
-
-    socket.emit('sendPlaceInfo', place);
+  socket.on("chating", async (chatContent, playerId, address) => {
+    socket.broadcast.to(address).emit("chating", chatContent, playerId);
   });
 
-  socket.on("chating", async (chatContent, playerId) => {
-    socket.broadcast.emit("chating", chatContent, playerId);
+  socket.on("emojing", async (emoji, playerId, address) => {
+    socket.broadcast.to(address).emit("emojing", emoji, playerId);
   });
 
-  socket.on("emojing", async (emoji, playerId) => {
-    socket.broadcast.emit("emojing", emoji, playerId);
-  });
-
-  socket.on("playerMovement", async (target, accountId) => {
+  socket.on("playerMovement", async (target, accountId, address) => {
     let player = await Account.findOne({ accountId: accountId });
 
     var tilem = target.tilem;
     var tilen = target.tilen;
     // emit a message to all players about the player that moved
-    socket.broadcast.emit("playerMoved", player, tilem, tilen);
+    socket.broadcast.to(address).emit("playerMoved", player, tilem, tilen);
   });
 
   socket.on("playerPosition", async (posInfo, n, m, accountId) => {
@@ -327,29 +273,51 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("setRoad", async (building) => {
+    // Get building info
+    let buildingInfo = await Building.findOne({ index: building.type });
+
     let newBuilding = new Placement({
       address: building.address,
       pos: building.pos,
       sno: building.sno,
       type: building.type,
+      buildingType: buildingInfo.type,
       built: building.built,
-      remaintime: building.remaintime,
       ads: building.ads,
       owner: building.owner
     });
     // Save user to DB
     await newBuilding.save();
-    socket.broadcast.emit("changeMap", newBuilding);
+
+    // Increase the score of the place
+    let place = await Place.findOne({ address: building.address, pos: building.pos });
+    await Place.findOneAndUpdate(
+      { address: place.address, pos: place.pos },
+      {
+        buildingCount: place.buildingCount + 1,
+        score: place.score + 1
+      },
+      { new: true }
+    );
+
+    socket.emit("updateInfo");
+    socket.broadcast.to(building.address).emit("changeMap", newBuilding);
+
+    //    socket.broadcast.emit("changeMap", newBuilding);
   });
 
   socket.on("setBuilding", async (building) => {
+    // Get building info
+    let buildingInfo = await Building.findOne({ index: building.type });
+
     let newBuilding = new Placement({
       address: building.address,
       pos: building.pos,
       sno: building.sno,
       type: building.type,
+      buildingType: buildingInfo.type,
       built: building.built,
-      remaintime: building.remaintime,
+      remaintime: buildingInfo.buildtime,
       ads: building.ads,
       linkurl: '',
       owner: building.owner
@@ -357,22 +325,10 @@ io.on("connection", async (socket) => {
     // Save user to DB
     await newBuilding.save();
 
-    // Refresh place info
-    let place = await Place.findOne({ address: building.address, pos: building.pos });
-    if (place) {
-      place = await Place.findOneAndUpdate(
-        { address: building.address, pos: building.pos },
-        {
-          buildingCount: ++place.buildingCount,
-          score: place.score + 5
-        },
-        { new: true }
-      );
-    }
+    //    socket.broadcast.emit("changeMap", newBuilding);
+    socket.broadcast.to(building.address).emit("changeMap", newBuilding);
 
-    socket.broadcast.emit("changeMap", newBuilding);
-
-    let count = building.remaintime + 1;
+    let count = buildingInfo.buildtime + 1;
     let interval = setInterval(async () => {
       count--;
 
@@ -390,6 +346,17 @@ io.on("connection", async (socket) => {
        * building completion
        */
       if (count == 1) {
+        // Increase the score of the place
+        let place = await Place.findOne({ address: building.address, pos: building.pos });
+        await Place.findOneAndUpdate(
+          { address: place.address, pos: place.pos },
+          {
+            buildingCount: place.buildingCount + 1,
+            score: place.score + buildingInfo.score
+          },
+          { new: true }
+        );
+
         let build = await Placement.findOne({ address: building.address, sno: building.sno, type: building.type });
         if (build) {
           build = await Placement.findOneAndUpdate(
@@ -398,7 +365,9 @@ io.on("connection", async (socket) => {
             { new: true }
           );
         }
-        io.emit("buildingCompletion", build);
+        //        io.emit("buildingCompletion", build);
+        io.to(building.address).emit("buildingCompletion", build);
+        socket.emit("updateInfo");
         clearInterval(interval);
       }
     }, 1000);
@@ -426,9 +395,10 @@ io.on("connection", async (socket) => {
        * building completion
        */
       if (count == 1) {
-
         clearInterval(interval);
-        io.emit("in-buildingCompletion", building);
+//        io.emit("in-buildingCompletion", building);
+        socket.emit("updateInfo");
+        io.to(building.address).emit("in-buildingCompletion", building);
         let build = await Placement.findOne({ address: building.address, sno: building.sno, type: building.type });
         if (build) {
           build = await Placement.findOneAndUpdate(
@@ -442,8 +412,24 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("building_destroy", async (sno, address) => {
-    await Placement.findOneAndRemove({ sno: sno, address: address });
-    socket.broadcast.emit("building_destroy", address, sno);
+    const building = await Placement.findOneAndRemove({ sno: sno, address: address });
+
+    // Get building info
+    let buildingInfo = await Building.findOne({ index: building.type });
+
+    // Decrease the score of the place
+    let place = await Place.findOne({ address: building.address, pos: building.pos });
+    await Place.findOneAndUpdate(
+      { address: place.address, pos: place.pos },
+      {
+        buildingCount: place.buildingCount - 1,
+        score: place.score - buildingInfo.score
+      },
+      { new: true }
+    );
+
+    socket.emit("updateInfo");
+    socket.broadcast.to(address).emit("building_destroy", sno);
   });
 
   socket.on("setLink", async (sno, address, url) => {
@@ -455,13 +441,12 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("disconnect", async () => {
-    console.log("user disconnected: ");
     if (socket.id != null) {
       let player = await Account.findOneAndUpdate(
         { socketId: socket.id },
         {
           address: '',
-          targetPos: 0,
+          targetPos: '',
           x: 0,
           y: 0,
           n: 0,
@@ -473,15 +458,15 @@ io.on("connection", async (socket) => {
 
       if (player != null) {
         console.log("user disconnected: ", player.accountId);
-        // Refresh place info
-        /*    place = await Place.findOneAndUpdate(
-              { address: place.address, pos: place.pos },
-              {
-                currentVisitor: --place.currentVisitor
-              },
-              { new: true }
-            );*/
-        socket.broadcast.emit("disconnected", player);
+        // decrease current visitor
+        let place = await Place.findOne({ address: player.address, pos: player.targetPos });
+
+        place = await Place.findOneAndUpdate(
+          { address: player.address, pos: player.targetPos },
+          { currentVisitor: place.currentVisitor - 1 },
+          { new: true }
+        );
+        socket.broadcast.to(player.address).emit("disconnected", player);
       }
     }
     socket.disconnect();
