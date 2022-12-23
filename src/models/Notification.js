@@ -1,23 +1,25 @@
+const { ObjectId } = require('mongodb');
 const mongoose = require('mongoose');
 const NotificationSchema = new mongoose.Schema({
-  accountId: { type: String, required: true },
-  playerId: { type: String, required: true },
-  alertType: { type: String, required: true },
+  accountId: { type: String, default: "" },
+  playerId: { type: String, default: "" },
+  alertType: { type: String, default: "" },
+  alertId: { type: ObjectId, default: "" },
   playerInfo: {
-    accountId: { type: String, required: true },
-    playerId: { type: String, required: true },
-    playerLvl: { type: Number, required: true },
-    lvlProcess: { type: Number, required: true },
-    friendFlag: { type: Boolean, required: true },
-    aliveFlag: { type: Boolean, required: true },
-    avatarUrl: { type: String, required: true },
-    degenlandNftCount: { type: Number, required: true },
-    tycoonNftCount: { type: Number, required: true },
-    mogulNftCount: { type: Number, required: true },
-    investorNftCount: { type: Number, required: true }
+    accountId: { type: String, default: "" },
+    playerId: { type: String, default: "" },
+    playerLvl: { type: Number, default: 1 },
+    lvlProcess: { type: Number, default: 0 },
+    friendFlag: { type: Boolean, default: false },
+    aliveFlag: { type: Boolean, default: false },
+    avatarUrl: { type: String, default: "" },
+    degenlandNftCount: { type: Number, default: 0 },
+    tycoonNftCount: { type: Number, default: 0 },
+    mogulNftCount: { type: Number, default: 0 },
+    investorNftCount: { type: Number, default: 0 }
   },
   message: { type: String, default: '' },
-  state: { type: String, required: true, default: 'unread' },
+  state: { type: String, default: 'unread' },
   date: { type: Date, default: Date.now }
 });
 

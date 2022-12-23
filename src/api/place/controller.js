@@ -80,6 +80,47 @@ exports.getPlaceInfo = async (req, res) => {
   }
 }
 
+/** Get places info from nfts */
+exports.getPlacesInfoFromNft = async (req, res) => {
+  try {
+    const nftInfo = JSON.parse(req.query.nftInfo);
+    let placeInfo = [];
+    await Promise.all(nftInfo.map(async (item, index) => {
+      let place = await Place.findOne({ token_id: item.token_id, serialNumber: item.serial_number });
+
+      if(place) {
+        let newInfo = {
+          token_id: place.token_id,
+          serial_number: place.serialNumber,
+          buildingCount: place.buildingCount,
+          totalVisitor: place.totalVisitor,
+          score: place.score
+        };
+        placeInfo.push(newInfo);
+      }
+      else {
+        let newInfo = {
+          token_id: "",
+          serial_number: 0,
+          buildingCount: 0,
+          totalVisitor: 0,
+          score: 0
+        };
+        placeInfo.push(newInfo);
+      }
+    }));
+
+    //send response
+    res.send({
+      status: true,
+      message: 'Success',
+      data: placeInfo
+    });
+  } catch (err) {
+    res.status(500).send(err);
+  }
+}
+
 exports.updatePlaceInfo = async (req, res) => {
   try {
     const address = req.query.address;

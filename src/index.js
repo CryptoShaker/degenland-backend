@@ -5,6 +5,7 @@ const cors = require('cors');
 const { Server } = require('socket.io');
 
 const api = require("./api");
+const env = require("./config/env");
 
 //socket
 const Init = require('./socket_io/onInit');
@@ -16,6 +17,7 @@ const Placement = require('./models/Placement');
 const Building = require('./models/Building');
 const Account = require('./models/Account');
 const Notification = require('./models/Notification');
+const OfferList = require('./models/OfferList');
 
 const fileUpload = require('express-fileupload');
 const bodyParser = require('body-parser');
@@ -166,10 +168,88 @@ io.on("connection", async (socket) => {
     }
   });
 
-  //Send offer
-  socket.on("sendOffer", async (offerInfo) => {
-    console.log("---------------------------sendOffer----------------------------");
-    console.log(offerInfo);
+  //Send nft swap offer
+  socket.on("sendOffer", async (provider, receiver, offerInfo) => {
+    /** Save offer in db */
+    let providerToken = {
+      hbar: offerInfo.myHbar,
+      pal: offerInfo.myPal
+    };
+
+    let providerNfts = [];
+
+    offerInfo.myNftInfo.map((item, index) => {
+      if(item.tokenId != env.getDegenlandNftId && item.tokenId != env.getTycoonNftId && item.tokenId != env.getMogulNftId && item.tokenId != env.getInvestorNftId) {
+        let nft = {
+          tokenId: item.tokenId,
+          serialNum: item.serialNum,
+          nft_type: 'NormalNft',
+          imgUrl: item.imgUrl,
+          creator: item.creator,
+          name: item.name,
+          buildingCount: item.buildingCount,
+          score: item.score,
+          totalVisitor: item.totalVisitor
+        };
+        providerNfts.push(nft);
+      }
+      else
+        providerNfts.push(item);
+    });
+
+    let receiverToken = {
+      hbar: offerInfo.friendHbar,
+      pal: offerInfo.friendPal
+    };
+
+    let receiverNfts = [];
+
+    offerInfo.friendNftInfo.map((item, index) => {
+      if(item.tokenId != env.getDegenlandNftId && item.tokenId != env.getTycoonNftId && item.tokenId != env.getMogulNftId && item.tokenId != env.getInvestorNftId) {
+        let nft = {
+          tokenId: item.tokenId,
+          serialNum: item.serialNum,
+          nft_type: 'NormalNft',
+          imgUrl: item.imgUrl,
+          creator: item.creator,
+          name: item.name,
+          buildingCount: item.buildingCount,
+          score: item.score,
+          totalVisitor: item.totalVisitor
+        };
+        receiverNfts.push(nft);
+      }
+      else
+        receiverNfts.push(item);
+    });
+
+    let newOffer = new OfferList({
+      providerAccountId: provider.accountId,
+      providerToken: providerToken,
+      providerNfts: providerNfts,
+      receiverAccountId: receiver.accountId,
+      receiverToken: receiverToken,
+      receiverNfts: receiverNfts
+    });
+    await newOffer.save();
+
+    /** Create notification */
+    let playerInfo = {
+      accountId: provider.accountId,
+      playerId: provider.playerId
+    };
+
+    let newNotification = new Notification({
+      accountId: receiver.accountId,
+      playerId: receiver.playerId,
+      alertType: 'nft swap offer',
+      alertId: newOffer._id,
+      playerInfo: playerInfo,
+    });
+    await newNotification.save();
+
+    let receiverInfo = await Account.findOne({ accountId: receiver.accountId });
+    io.to(receiverInfo.socketId).emit('successSendOffer', newOffer);
   });
 
   //--------------------------------------------------------
@@ -396,7 +476,7 @@ io.on("connection", async (socket) => {
        */
       if (count == 1) {
         clearInterval(interval);
-//        io.emit("in-buildingCompletion", building);
+        //        io.emit("in-buildingCompletion", building);
         socket.emit("updateInfo");
         io.to(building.address).emit("in-buildingCompletion", building);
         let build = await Placement.findOne({ address: building.address, sno: building.sno, type: building.type });
