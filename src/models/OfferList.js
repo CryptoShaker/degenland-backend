@@ -1,6 +1,14 @@
 const mongoose = require('mongoose');
 const OfferListSchema = new mongoose.Schema({
-  providerAccountId: { type: String, default: "" },
+  providerInfo: {
+    accountId: { type: String, default: "" },
+    playerId: { type: String, default: "" },
+    avatarUrl: { type: String, default: "" },
+    connectState: { type: Boolean, default: false },
+    level: { type: Number, default: 1 },
+    currentLevelScore: {type: Number, default: 0},
+    targetLevelScore: {type: Number, default: 50},
+  },
   providerToken: {
     hbar: { type: Number, default: 0 },
     pal: { type: Number, default: 0 }
@@ -18,7 +26,15 @@ const OfferListSchema = new mongoose.Schema({
       totalVisitor: { type: Number, default: 0 }
     }
   ],
-  receiverAccountId: { type: String, default: "" },
+  receiverInfo: {
+    accountId: { type: String, default: "" },
+    playerId: { type: String, default: "" },
+    avatarUrl: { type: String, default: "" },
+    connectState: { type: Boolean, default: false },
+    level: { type: Number, default: 1 },
+    currentLevelScore: {type: Number, default: 0},
+    targetLevelScore: {type: Number, default: 50},
+  },
   receiverToken: {
     hbar: { type: Number, default: 0 },
     pal: { type: Number, default: 0 }

@@ -4,7 +4,7 @@ const NotificationSchema = new mongoose.Schema({
   accountId: { type: String, default: "" },
   playerId: { type: String, default: "" },
   alertType: { type: String, default: "" },
-  alertId: { type: ObjectId, default: "" },
+  alertId: { type: ObjectId },
   playerInfo: {
     accountId: { type: String, default: "" },
     playerId: { type: String, default: "" },

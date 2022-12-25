@@ -58,13 +58,25 @@ exports.getPlaceInfo = async (req, res) => {
 
     let placeOwner = await Account.findOne({ accountId: nftdata.owner });
 
+    let ownerInfo = {
+      playerId: placeOwner.playerId,
+      avatarUrl: placeOwner.avatarUrl,
+      connectState: placeOwner.connectState,
+      level: placeOwner.level,
+      currentLevelScore: placeOwner.currentLevelScore,
+      targetLevelScore: placeOwner.targetLevelScore,
+      degenlandNftCount: placeOwner.degenlandCount,
+      tycoonNftCount: placeOwner.tycoonCount,
+      mogulNftCount: placeOwner.mogulCount,
+      investorNftCount: placeOwner.investorCount
+    }
+
     place = await Place.findOneAndUpdate(
       { token_id: nftdata.token_id, serialNumber: nftdata.serial_number },
       {
         address: address,
         pos: targetPos,
-        owner: nftdata.owner,
-        avatarUrl: placeOwner.avatarUrl
+        ownerInfo: ownerInfo
       },
       { new: true }
     );

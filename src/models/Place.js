@@ -16,13 +16,17 @@ const PlaceSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  owner: {
-    type: String,
-    default: ''
-  },
-  avatarUrl: {
-    type: String,
-    default: ''
+  ownerInfo: {
+    playerId: { type: String, default: "" },
+    avatarUrl: { type: String, default: "" },
+    connectState: { type: Boolean, default: false },
+    level: { type: Number, default: 1 },
+    currentLevelScore: { type: Number, default: 0 },
+    targetLevelScore: { type: Number, default: 0 },
+    degenlandNftCount: { type: Number, default: 0 },
+    tycoonNftCount: { type: Number, default: 0 },
+    mogulNftCount: { type: Number, default: 0 },
+    investorNftCount: { type: Number, default: 0 }
   },
   buildingCount: {
     type: Number, 

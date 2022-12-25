@@ -70,7 +70,7 @@ io.on("connection", async (socket) => {
   /**
    * db init
    */
-  //  Init.onInit(io, socket);
+//  Init.onInit(io, socket);
 
   // Invite friend
   socket.on("inviteToFriend", async (fromId, toId, toPlayerId) => {
@@ -223,11 +223,31 @@ io.on("connection", async (socket) => {
         receiverNfts.push(item);
     });
 
+    let providerInfo = {
+      accountId: provider.accountId,
+      playerId: provider.playerId,
+      avatarUrl: provider.avatarUrl,
+      connectState: provider.connectState,
+      level: provider.level,
+      currentLevelScore: provider.currentLevelScore,
+      targetLevelScore: provider.targetLevelScore
+    };
+
+    let receiverInfo = {
+      accountId: receiver.accountId,
+      playerId: receiver.playerId,
+      avatarUrl: receiver.avatarUrl,
+      connectState: receiver.connectState,
+      level: receiver.level,
+      currentLevelScore: receiver.currentLevelScore,
+      targetLevelScore: receiver.targetLevelScore
+    };
+
     let newOffer = new OfferList({
-      providerAccountId: provider.accountId,
+      providerInfo: providerInfo,
       providerToken: providerToken,
       providerNfts: providerNfts,
-      receiverAccountId: receiver.accountId,
+      receiverInfo: receiverInfo,
       receiverToken: receiverToken,
       receiverNfts: receiverNfts
     });
@@ -248,8 +268,8 @@ io.on("connection", async (socket) => {
     });
     await newNotification.save();
 
-    let receiverInfo = await Account.findOne({ accountId: receiver.accountId });
-    io.to(receiverInfo.socketId).emit('successSendOffer', newOffer);
+    socket.emit('createdOffer', newOffer._id);
+    io.to(receiver.socketId).emit('successSendOffer', newOffer);
   });
 
   //--------------------------------------------------------
