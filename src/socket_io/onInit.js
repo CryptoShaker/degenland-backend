@@ -9,8 +9,8 @@ exports.onInit = async (io, socket) => {
   let buildingInfo = await Building.find({});
 
   if (buildingInfo.length == 0) {
-    for (let i = 0; i <= 87; i++) {
-      if (i >= 0 && i <= 6) {
+    for (let i = 0; i <= 21; i++) {
+      if (i == 0) {
         buildingInfo = new Building({
           index: i,
           type: 'ground',
@@ -21,11 +21,11 @@ exports.onInit = async (io, socket) => {
           score: 1
         });
       }
-      else if (i >= 7 && i <= 56) {
+      else if (i >= 1 && i <= 11) {
         buildingInfo = new Building({
           index: i,
           type: 'road',
-          url: '/buildings/road/r (' + (i - 6) + ').png',
+          url: '/buildings/road/r (' + i + ').png',
           default: true,
           size: '1*1',
           cost: 0,
@@ -36,21 +36,31 @@ exports.onInit = async (io, socket) => {
         let buildingSize;
         let score;
         let buildtime;
-        if (i >= 73 && i <= 86) {
-          buildingSize = '2*2';
-          score = 10;
+        if (i == 12) {
+          buildingSize = '1*2';
+          score = 5;
           buildtime = 20;
         }
-        else {
-          buildingSize = '1*1';
-          score = 2;
-          buildtime = 10;
+        else if(i >= 13 && i <= 17) {
+          buildingSize = '2*2';
+          score = 15;
+          buildtime = 20;
+        }
+        else if(i >= 18 && i <= 20) {
+          buildingSize = '4*4';
+          score = 40;
+          buildtime = 20;
+        }
+        else if(i == 21) {
+          buildingSize = '9*11';
+          score = 200;
+          buildtime = 20;
         }
 
         buildingInfo = new Building({
           index: i,
           type: 'building',
-          url: '/buildings/building/b (' + (i - 56) + ').png',
+          url: '/buildings/building/b (' + (i - 11) + ').png',
           default: true,
           size: buildingSize,
           cost: 0,

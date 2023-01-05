@@ -45,8 +45,8 @@ exports.getOfferList = async (req, res) => {
       let accountId = req.query.accountId;
 
       /** Get offer info */
-      let myOffer = await OfferList.find({ 'providerInfo.accountId': accountId });
-      let receivedOffer = await OfferList.find({ 'receiverInfo.accountId': accountId });
+      let myOffer = await OfferList.find({ 'providerInfo.accountId': accountId, state: 'unread' }).sort({date: -1});
+      let receivedOffer = await OfferList.find({ 'receiverInfo.accountId': accountId, state: 'unread' }).sort({date: -1});
 
       const resData = {
         myOffer: myOffer,

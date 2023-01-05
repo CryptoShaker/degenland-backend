@@ -70,7 +70,7 @@ io.on("connection", async (socket) => {
   /**
    * db init
    */
-//  Init.onInit(io, socket);
+  Init.onInit(io, socket);
 
   // Invite friend
   socket.on("inviteToFriend", async (fromId, toId, toPlayerId) => {
@@ -178,24 +178,26 @@ io.on("connection", async (socket) => {
 
     let providerNfts = [];
 
-    offerInfo.myNftInfo.map((item, index) => {
-      if(item.tokenId != env.getDegenlandNftId && item.tokenId != env.getTycoonNftId && item.tokenId != env.getMogulNftId && item.tokenId != env.getInvestorNftId) {
-        let nft = {
-          tokenId: item.tokenId,
-          serialNum: item.serialNum,
-          nft_type: 'NormalNft',
-          imgUrl: item.imgUrl,
-          creator: item.creator,
-          name: item.name,
-          buildingCount: item.buildingCount,
-          score: item.score,
-          totalVisitor: item.totalVisitor
-        };
-        providerNfts.push(nft);
-      }
-      else
-        providerNfts.push(item);
-    });
+    if(offerInfo.myNftInfo.length > 0) {
+      offerInfo.myNftInfo.map((item, index) => {
+        if(item.tokenId != env.getDegenlandNftId && item.tokenId != env.getTycoonNftId && item.tokenId != env.getMogulNftId && item.tokenId != env.getInvestorNftId) {
+          let nft = {
+            tokenId: item.tokenId,
+            serialNum: item.serialNum,
+            nft_type: 'NormalNft',
+            imgUrl: item.imgUrl,
+            creator: item.creator,
+            name: item.name,
+            buildingCount: item.buildingCount,
+            score: item.score,
+            totalVisitor: item.totalVisitor
+          };
+          providerNfts.push(nft);
+        }
+        else
+          providerNfts.push(item);
+      });
+    }
 
     let receiverToken = {
       hbar: offerInfo.friendHbar,
@@ -270,6 +272,58 @@ io.on("connection", async (socket) => {
 
     socket.emit('createdOffer', newOffer._id);
     io.to(receiver.socketId).emit('successSendOffer', newOffer);
+  });
+
+  /**
+   * Accept offer
+   */
+  socket.on("setAcceptOffer", async (offerInfo) => {
+    const receiverInfo = offerInfo.receiverInfo;
+    const receiverToken = offerInfo.receiverToken;
+    const providerInfo = offerInfo.providerInfo;
+    const providerToken = offerInfo.providerToken;
+
+    const offer = await OfferList.findOneAndUpdate(
+      { receiverInfo: receiverInfo, receiverToken: receiverToken, providerInfo: providerInfo, providerToken: providerToken, state: 'unread' },
+      { state: 'accepted' },
+      { new: true }
+    );
+
+    const a = await Notification.findOneAndUpdate(
+      { alertId: offer._id, state: 'unread' },
+      { state: 'accepted' },
+      { new: true }
+    );
+
+    socket.emit("successAcceptOffer", receiverInfo.accountId);
+
+    let fromIdInfo = await Account.findOne({ accountId: providerInfo.accountId });
+    io.to(fromIdInfo.socketId).emit("alertOfferAccepted", providerInfo.accountId);
+  });
+
+  //Offer Decline
+  socket.on("setOfferDecline", async (offerInfo) => {
+    const receiverInfo = offerInfo.receiverInfo;
+    const receiverToken = offerInfo.receiverToken;
+    const providerInfo = offerInfo.providerInfo;
+    const providerToken = offerInfo.providerToken;
+
+    const offer = await OfferList.findOneAndUpdate(
+      { receiverInfo: receiverInfo, receiverToken: receiverToken, providerInfo: providerInfo, providerToken: providerToken, state: 'unread' },
+      { state: 'declined' },
+      { new: true }
+    );
+
+    const a = await Notification.findOneAndUpdate(
+      { alertId: offer._id, state: 'unread' },
+      { state: 'declined' },
+      { new: true }
+    );
+
+    socket.emit("successDeclineOffer", receiverInfo.accountId);
+
+    let fromIdInfo = await Account.findOne({ accountId: providerInfo.accountId });
+    io.to(fromIdInfo.socketId).emit("alertOfferDeclined", providerInfo.accountId);
   });
 
   //--------------------------------------------------------
