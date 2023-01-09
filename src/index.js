@@ -1,6 +1,8 @@
 const express = require('express');
 const app = express();
-const http = require('http');
+//const http = require('http');
+const https = require("https");
+const fs = require("fs");
 const cors = require('cors');
 const { Server } = require('socket.io');
 
@@ -53,7 +55,18 @@ db.mongoose
   });
 
 
-const server = http.createServer(app);
+//const server = http.createServer(app);
+
+const httpsPort = 3300;
+const privateKey = fs.readFileSync("/etc/letsencrypt/live/pengupals.tech/privkey.pem");
+const certificate = fs.readFileSync("/etc/letsencrypt/live/pengupals.tech/fullchain.pem");
+
+const credentials = {
+    key: privateKey,
+    cert: certificate,
+}
+
+const server = https.createServer(credentials, app);
 
 const io = new Server(server, {
   cors: {
@@ -279,18 +292,10 @@ io.on("connection", async (socket) => {
    */
   socket.on("setAcceptOffer", async (offerInfo) => {
     const receiverInfo = offerInfo.receiverInfo;
-    const receiverToken = offerInfo.receiverToken;
     const providerInfo = offerInfo.providerInfo;
-    const providerToken = offerInfo.providerToken;
 
-    const offer = await OfferList.findOneAndUpdate(
-      { receiverInfo: receiverInfo, receiverToken: receiverToken, providerInfo: providerInfo, providerToken: providerToken, state: 'unread' },
-      { state: 'accepted' },
-      { new: true }
-    );
-
-    const a = await Notification.findOneAndUpdate(
-      { alertId: offer._id, state: 'unread' },
+    await Notification.findOneAndUpdate(
+      { alertId: offerInfo._id },
       { state: 'accepted' },
       { new: true }
     );
@@ -308,22 +313,21 @@ io.on("connection", async (socket) => {
     const providerInfo = offerInfo.providerInfo;
     const providerToken = offerInfo.providerToken;
 
-    const offer = await OfferList.findOneAndUpdate(
-      { receiverInfo: receiverInfo, receiverToken: receiverToken, providerInfo: providerInfo, providerToken: providerToken, state: 'unread' },
+    await Notification.findOneAndUpdate(
+      { alertId: offerInfo._id },
       { state: 'declined' },
       { new: true }
     );
 
-    const a = await Notification.findOneAndUpdate(
-      { alertId: offer._id, state: 'unread' },
+    const declinedOffer = await OfferList.findOneAndUpdate(
+      { _id: offerInfo._id },
       { state: 'declined' },
-      { new: true }
     );
 
     socket.emit("successDeclineOffer", receiverInfo.accountId);
 
     let fromIdInfo = await Account.findOne({ accountId: providerInfo.accountId });
-    io.to(fromIdInfo.socketId).emit("alertOfferDeclined", providerInfo.accountId);
+    io.to(fromIdInfo.socketId).emit("alertOfferDeclined", declinedOffer);
   });
 
   //--------------------------------------------------------
@@ -627,4 +631,7 @@ io.on("connection", async (socket) => {
   });
 });
 
-server.listen(3306, () => 'Server is running on port 3306');
+//server.listen(3306, () => 'Server is running on port 3306');
+server.listen(httpsPort, () => {
+  console.log(`[pengupals.tech] servier is running at port ${httpsPort} as https.`);
+});
