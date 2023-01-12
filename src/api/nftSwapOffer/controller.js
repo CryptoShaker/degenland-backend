@@ -75,13 +75,26 @@ exports.getOfferList = async (req, res) => {
       let accountId = req.query.accountId;
 
       /** Get offer info */
-      let acceptedMyOffer = await OfferList.find({ 'providerInfo.accountId': accountId, providerClaimed: false, state: 'accepted' }).sort({date: -1});
+      let claimableOfferList = await OfferList.find(
+        {
+          $or: [{ 'providerInfo.accountId': accountId }, { 'receiverInfo.accountId': accountId }],
+          $or: [{ providerClaimed: false }, { receiverClaimed: false }],
+          state: 'accepted'
+        }
+      );
+      let declinedOfferList = await OfferList.find(
+        {
+          'providerInfo.accountId': accountId,
+          $or: [{ providerClaimed: false }, { receiverClaimed: false }],
+          state: 'declined'
+        }
+      );
+      console.log("Get offer info", claimableOfferList);
       let myOffer = await OfferList.find({ 'providerInfo.accountId': accountId, state: 'created' }).sort({date: -1});
-      let acceptedReceivedOffer = await OfferList.find({ 'receiverInfo.accountId': accountId, receiverClaimed: false, state: 'accepted' }).sort({date: -1});
       let receivedOffer = await OfferList.find({ 'receiverInfo.accountId': accountId, state: 'created' }).sort({date: -1});
 
       const resData = {
-        acceptedOffer: acceptedMyOffer.concat(acceptedReceivedOffer),
+        claimableOfferList: claimableOfferList.concat(declinedOfferList),
         myOffer: myOffer,
         receivedOffer: receivedOffer
       }
@@ -99,6 +112,7 @@ exports.getOfferList = async (req, res) => {
 }
 
 exports.getToken = async (req, res) => {
+  console.log("getToken log ", req.query);
   try {
     if (!req.query.swapId) {
       res.send({
@@ -109,6 +123,7 @@ exports.getToken = async (req, res) => {
       let _swapId = atob(req.query.swapId);
 
       const swapCollection = await SwapCollection.findOne({ swapId: _swapId });
+      console.log(swapCollection);
 
       const resData = {
         hbar: swapCollection.offerHbar,
@@ -167,10 +182,11 @@ exports.updateOffer = async (req, res) => {
     } else {
       let offerId = req.body.offerId;
       let state = req.body.state;
+      let claimableState = req.body.claimableState;
 
       let newOffer = await OfferList.findOneAndUpdate(
         { _id: offerId },
-        { state: state },
+        { state: state, claimableState: claimableState },
         { new: true }
       );
 
