@@ -11,7 +11,7 @@ exports.setNft = async (req, res) => {
       let nftData = req.body.nftData;
       let accountId = req.body.accountId;
 
-      await NftList.updateMany({ owner: accountId }, { owner: "" });
+      await NftList.updateMany({ owner: accountId }, { owner: null });
 
       for (let i = 0; i < nftData.length; i++) {
         let oldnftData = await NftList.findOne({ name: nftData[i].name, serial_number: nftData[i].serial_number });

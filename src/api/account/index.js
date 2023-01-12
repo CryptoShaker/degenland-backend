@@ -11,4 +11,6 @@ router.get('/update_player_info', account.updatePlayerInfo);
 
 router.post('/upload_avatar', account.uploadAvatar);
 router.post('/set_friend', account.setFriend);
+router.post('/set_nft_count', account.setNftCount);
+
 module.exports = router;

@@ -31,6 +31,7 @@ exports.getAllowance = async (_accountId, _amount) => {
     let _allowanceCheck = false;
     if (_response && _response.data.allowances && _response.data.allowances?.length > 0) {
       const _allowanceInfo = _response.data.allowances;
+      console.log(_allowanceInfo);
       for (let i = 0; i < _allowanceInfo.length; i++) {
         if (_allowanceInfo[i].spender === operatorId.toString() && _allowanceInfo[i].amount_granted >= _amount * HBAR_DECIMAL) {
           _allowanceCheck = true;
@@ -219,8 +220,8 @@ exports.claimTokenAndNfts = async (_swapCollection, _swapListData) => {
 }
 
 exports.associateCheck = async (tokenId) => {
-  const checkingTokenId = tokenId;
   try {
+    const checkingTokenId = tokenId;
     let tokenAssociatedFlag = false;
 
     let response = await axios.get(`https://mainnet-public.mirrornode.hedera.com/api/v1/accounts/${process.env.TREASURY_ID}/tokens`);
@@ -252,8 +253,8 @@ exports.associateCheck = async (tokenId) => {
 
 exports.setAssociate = async (tokenId) => {
   console.log("setAssociate log - 1 : ", tokenId);
-  const checkingTokenId = tokenId;
   try {
+    const checkingTokenId = tokenId;
     //Associate a token to an account and freeze the unsigned transaction for signing
     const transaction = await new TokenAssociateTransaction()
       .setAccountId(operatorId)

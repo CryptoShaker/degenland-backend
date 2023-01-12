@@ -19,6 +19,7 @@ const OfferListSchema = new mongoose.Schema({
     {
       tokenId: { type: String, default: "" },
       serialNum: { type: Number, default: -1 },
+      fallbackFee: { type: Number, default: 0 },
       nft_type: { type: String, default: "LandNft" },
       imgUrl: { type: String, default: "" },
       creator: { type: String, default: "" },
@@ -47,6 +48,7 @@ const OfferListSchema = new mongoose.Schema({
     {
       tokenId: { type: String, default: "" },
       serialNum: { type: Number, default: -1 },
+      fallbackFee: { type: Number, default: 0 },
       nft_type: { type: String, default: "LandNft" },
       imgUrl: { type: String, default: "" },
       creator: { type: String, default: "" },
@@ -57,6 +59,7 @@ const OfferListSchema = new mongoose.Schema({
     }
   ],
   state: { type: String, required: true, default: 'created' },
+  claimableState: { type: Boolean, default: false },
   step: { type: Number, default: 0 },
   date: { type: Date, default: Date.now }
 });

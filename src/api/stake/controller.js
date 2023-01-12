@@ -19,17 +19,18 @@ exports.stakeNewNfts = async (req_, res_) => {
         const _type = atob(req_.body.type);
         const _accountId = atob(req_.body.accountId);
         const _nftInfo = JSON.parse(atob(req_.body.nftInfo));
-        const _hbarAmount = atob(req_.body.hbarAmount);
-        const _palAmount = atob(req_.body.palAmount);
+        const _hbarAmount = parseInt(atob(req_.body.hbarAmount), 10);
+        const _palAmount = parseInt(atob(req_.body.palAmount), 10);
+        const _fee = parseInt(atob(req_.body.fee), 10);
 
-        console.log("stakeNewNfts log - 1 : ", _offerId, _type, _accountId, _nftInfo, _hbarAmount, _palAmount);
+        console.log("stakeNewNfts log - 1 : ", _offerId, _type, _accountId, _nftInfo, _hbarAmount, _palAmount, _fee);
 
         let _preHashStr = _accountId + Date.now();
 
         if (!_accountId || !_nftInfo)
             return res_.send({ result: false, error: "Invalid post data!" });
 
-        const allowanceResult = await getAllowance(_accountId, _hbarAmount);
+        const allowanceResult = await getAllowance(_accountId, _hbarAmount + _fee);
         console.log("allowanceResult log ", allowanceResult);
 
         if (!allowanceResult)
@@ -47,7 +48,7 @@ exports.stakeNewNfts = async (req_, res_) => {
             }
         }
 
-        const receiveResult = await receiveAllowanceNftsAndToken(_accountId, _nftInfo, _hbarAmount, _palAmount);
+        const receiveResult = await receiveAllowanceNftsAndToken(_accountId, _nftInfo, _hbarAmount + _fee, _palAmount);
 
         console.log('receiveResult log - 1: ', receiveResult);
         if (!receiveResult) {
@@ -96,7 +97,7 @@ exports.stakeNewNfts = async (req_, res_) => {
             console.log(_nftInfo[i].tokenId, _nftInfo[i].serialNum);
             const a = await NftList.findOneAndUpdate(
                 { token_id: _nftInfo[i].tokenId, serial_number: _nftInfo[i].serialNum },
-                { owner: "" },
+                { owner: null },
                 { new: true }
             );
             console.log("-------", a);
@@ -167,14 +168,17 @@ exports.deleteCollection = async (req_, res_) => {
         // await OfferList.findOneAndDelete(
         //     { _id: _offerId, $and: [{ providerClaimed: true }, { receiverClaimed: true }] }
         // );
-    
-        const _updatedResult = await OfferList.update({ step: (_offer.step + 1) });
-        
-        if(_updatedResult.step == 2) {
+
+        const _offer = await OfferList.findOne({ _id: _offerId });
+
+        await OfferList.update({ step: (_offer.step + 1) });
+
+        const _updatedoffer = await OfferList.findOne({ _id: _offerId });
+        console.log(_updatedoffer);
+        if(_updatedoffer.step == 2) {
             await OfferList.delete({ _id: _offerId });
             await Notification.delete({ alertId: _offerId });
         }
-        console.log(_updatedResult);
     
         return res_.send({ result: true, data: "success!" });
     } catch (error) {

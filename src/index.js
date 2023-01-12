@@ -62,8 +62,8 @@ const privateKey = fs.readFileSync("/etc/letsencrypt/live/pengupals.tech/privkey
 const certificate = fs.readFileSync("/etc/letsencrypt/live/pengupals.tech/fullchain.pem");
 
 const credentials = {
-    key: privateKey,
-    cert: certificate,
+  key: privateKey,
+  cert: certificate,
 }
 
 const server = https.createServer(credentials, app);
@@ -168,16 +168,24 @@ io.on("connection", async (socket) => {
         mogulNftCount: fromIdInfo.mogulCount,
         investorNftCount: fromIdInfo.investorCount
       };
-      let privateMsgInfo = new Notification({
+
+      let _newNotification = new Notification({
         accountId: toId,
         playerId: toPlayerId,
         alertType: 'private message',
         playerInfo: playerInfo,
       });
-      await privateMsgInfo.save();
+      await _newNotification.save();
+
+      let _newMessage = new PrivateMessage({
+        senderAccountId: fromId,
+        receiverAccountId: toId,
+        chatContent: val
+      })
+      await _newMessage.save();
 
       let toIdInfo = await Account.findOne({ accountId: toId });
-      io.to(toIdInfo.socketId).emit('receivePrivateMsg', privateMsgInfo, val);
+      io.to(toIdInfo.socketId).emit('receivePrivateMsg', _newNotification, val);
     }
   });
 
@@ -191,12 +199,13 @@ io.on("connection", async (socket) => {
 
     let providerNfts = [];
 
-    if(offerInfo.myNftInfo.length > 0) {
+    if (offerInfo.myNftInfo.length > 0) {
       offerInfo.myNftInfo.map((item, index) => {
-        if(item.tokenId != env.getDegenlandNftId && item.tokenId != env.getTycoonNftId && item.tokenId != env.getMogulNftId && item.tokenId != env.getInvestorNftId) {
+        if (item.tokenId != env.getDegenlandNftId && item.tokenId != env.getTycoonNftId && item.tokenId != env.getMogulNftId && item.tokenId != env.getInvestorNftId) {
           let nft = {
             tokenId: item.tokenId,
             serialNum: item.serialNum,
+            fallbackFee: item.fallback,
             nft_type: 'NormalNft',
             imgUrl: item.imgUrl,
             creator: item.creator,
@@ -220,10 +229,11 @@ io.on("connection", async (socket) => {
     let receiverNfts = [];
 
     offerInfo.friendNftInfo.map((item, index) => {
-      if(item.tokenId != env.getDegenlandNftId && item.tokenId != env.getTycoonNftId && item.tokenId != env.getMogulNftId && item.tokenId != env.getInvestorNftId) {
+      if (item.tokenId != env.getDegenlandNftId && item.tokenId != env.getTycoonNftId && item.tokenId != env.getMogulNftId && item.tokenId != env.getInvestorNftId) {
         let nft = {
           tokenId: item.tokenId,
           serialNum: item.serialNum,
+          fallbackFee: item.fallback,
           nft_type: 'NormalNft',
           imgUrl: item.imgUrl,
           creator: item.creator,
@@ -321,13 +331,38 @@ io.on("connection", async (socket) => {
 
     const declinedOffer = await OfferList.findOneAndUpdate(
       { _id: offerInfo._id },
-      { state: 'declined' },
+      { state: 'declined', claimableState: true },
     );
 
     socket.emit("successDeclineOffer", receiverInfo.accountId);
 
     let fromIdInfo = await Account.findOne({ accountId: providerInfo.accountId });
     io.to(fromIdInfo.socketId).emit("alertOfferDeclined", declinedOffer);
+  });
+
+  /**
+   * Approve
+   */
+  socket.on("setOfferApproved", async (offerInfo) => {
+    const receiverInfo = offerInfo.receiverInfo;
+    const providerInfo = offerInfo.providerInfo;
+
+    await Notification.findOneAndUpdate(
+      { alertId: offerInfo._id },
+      { state: 'approved' }
+    );
+
+    // let newNotification = new Notification({
+    //   accountId: receiver.accountId,
+    //   playerId: receiver.playerId,
+    //   alertType: 'nft swap offer',
+    //   alertId: newOffer._id,
+    //   playerInfo: playerInfo,
+    // });
+    // await newNotification.save();
+
+    let fromIdInfo = await Account.findOne({ accountId: providerInfo.accountId });
+    io.to(fromIdInfo.socketId).emit("alertOfferApproved", providerInfo.accountId);
   });
 
   //--------------------------------------------------------
