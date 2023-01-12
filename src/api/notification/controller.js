@@ -44,10 +44,13 @@ exports.setRead = async (req_, res_) => {
   const g_id2 = req_.body.id2;
   const g_state = req_.body.state;
 
-  await Notification.findOneAndUpdate(
-    { accountId: g_id1, 'playerInfo.accountId': g_id2, state: g_state },
-    { state: 'read' },
-    { new: true }
+  // await Notification.findOneAndUpdate(
+  //   { accountId: g_id1, 'playerInfo.accountId': g_id2, state: g_state },
+  //   { state: 'read' }
+  // );
+  await Notification.findOneAndDelete(
+    { accountId: g_id1, 'playerInfo.accountId': g_id2, state: g_state }
   );
+
   return res_.send({ result: true});
 }

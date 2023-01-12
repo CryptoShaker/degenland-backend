@@ -17,6 +17,7 @@ const Placement = require('./models/Placement');
 const Building = require('./models/Building');
 const Account = require('./models/Account');
 const Notification = require('./models/Notification');
+const PrivateMessage = require('./models/PrivateMessage');
 const OfferList = require('./models/OfferList');
 
 const fileUpload = require('express-fileupload');
@@ -155,16 +156,24 @@ io.on("connection", async (socket) => {
         mogulNftCount: fromIdInfo.mogulCount,
         investorNftCount: fromIdInfo.investorCount
       };
-      let privateMsgInfo = new Notification({
+
+      let _newNotification = new Notification({
         accountId: toId,
         playerId: toPlayerId,
         alertType: 'private message',
         playerInfo: playerInfo,
       });
-      await privateMsgInfo.save();
+      await _newNotification.save();
+
+      let _newMessage = new PrivateMessage({
+        senderAccountId: fromId,
+        receiverAccountId: toId,
+        chatContent: val
+      })
+      await _newMessage.save();
 
       let toIdInfo = await Account.findOne({ accountId: toId });
-      io.to(toIdInfo.socketId).emit('receivePrivateMsg', privateMsgInfo, val);
+      io.to(toIdInfo.socketId).emit('receivePrivateMsg', _newNotification, val);
     }
   });
 
@@ -178,12 +187,13 @@ io.on("connection", async (socket) => {
 
     let providerNfts = [];
 
-    if(offerInfo.myNftInfo.length > 0) {
+    if (offerInfo.myNftInfo.length > 0) {
       offerInfo.myNftInfo.map((item, index) => {
-        if(item.tokenId != env.getDegenlandNftId && item.tokenId != env.getTycoonNftId && item.tokenId != env.getMogulNftId && item.tokenId != env.getInvestorNftId) {
+        if (item.tokenId != env.getDegenlandNftId && item.tokenId != env.getTycoonNftId && item.tokenId != env.getMogulNftId && item.tokenId != env.getInvestorNftId) {
           let nft = {
             tokenId: item.tokenId,
             serialNum: item.serialNum,
+            fallbackFee: item.fallback,
             nft_type: 'NormalNft',
             imgUrl: item.imgUrl,
             creator: item.creator,
@@ -207,10 +217,11 @@ io.on("connection", async (socket) => {
     let receiverNfts = [];
 
     offerInfo.friendNftInfo.map((item, index) => {
-      if(item.tokenId != env.getDegenlandNftId && item.tokenId != env.getTycoonNftId && item.tokenId != env.getMogulNftId && item.tokenId != env.getInvestorNftId) {
+      if (item.tokenId != env.getDegenlandNftId && item.tokenId != env.getTycoonNftId && item.tokenId != env.getMogulNftId && item.tokenId != env.getInvestorNftId) {
         let nft = {
           tokenId: item.tokenId,
           serialNum: item.serialNum,
+          fallbackFee: item.fallback,
           nft_type: 'NormalNft',
           imgUrl: item.imgUrl,
           creator: item.creator,
@@ -283,14 +294,8 @@ io.on("connection", async (socket) => {
     const providerInfo = offerInfo.providerInfo;
     const providerToken = offerInfo.providerToken;
 
-    const offer = await OfferList.findOneAndUpdate(
-      { receiverInfo: receiverInfo, receiverToken: receiverToken, providerInfo: providerInfo, providerToken: providerToken, state: 'unread' },
-      { state: 'accepted' },
-      { new: true }
-    );
-
-    const a = await Notification.findOneAndUpdate(
-      { alertId: offer._id, state: 'unread' },
+    await Notification.findOneAndUpdate(
+      { alertId: offerInfo._id },
       { state: 'accepted' },
       { new: true }
     );
@@ -308,22 +313,21 @@ io.on("connection", async (socket) => {
     const providerInfo = offerInfo.providerInfo;
     const providerToken = offerInfo.providerToken;
 
-    const offer = await OfferList.findOneAndUpdate(
-      { receiverInfo: receiverInfo, receiverToken: receiverToken, providerInfo: providerInfo, providerToken: providerToken, state: 'unread' },
+    await Notification.findOneAndUpdate(
+      { alertId: offerInfo._id },
       { state: 'declined' },
       { new: true }
     );
 
-    const a = await Notification.findOneAndUpdate(
-      { alertId: offer._id, state: 'unread' },
+    const declinedOffer = await OfferList.findOneAndUpdate(
+      { _id: offerInfo._id },
       { state: 'declined' },
-      { new: true }
     );
 
     socket.emit("successDeclineOffer", receiverInfo.accountId);
 
     let fromIdInfo = await Account.findOne({ accountId: providerInfo.accountId });
-    io.to(fromIdInfo.socketId).emit("alertOfferDeclined", providerInfo.accountId);
+    io.to(fromIdInfo.socketId).emit("alertOfferDeclined", declinedOffer);
   });
 
   //--------------------------------------------------------
@@ -371,7 +375,7 @@ io.on("connection", async (socket) => {
       // Get players in the same address
       let players = await Account.find({ address: address });
 
-      let buildingList = await Placement.find({ address: address });
+      let buildingList = await Placement.find({ address: address, built: true });
       socket.join(address);
       socket.emit("mapInit", player, buildingList);
       socket.emit("currentPlayers", players);
@@ -379,7 +383,7 @@ io.on("connection", async (socket) => {
     }
     else if (mode == 'construction') {
       // construction mode
-      let buildingList = await Placement.find({ address: address });
+      let buildingList = await Placement.find({ address: address, built: true });
       socket.join(address);
       /*
             socket.join(address);
@@ -455,9 +459,7 @@ io.on("connection", async (socket) => {
     );
 
     socket.emit("updateInfo");
-    socket.broadcast.to(building.address).emit("changeMap", newBuilding);
-
-    //    socket.broadcast.emit("changeMap", newBuilding);
+    //    socket.broadcast.to(building.address).emit("changeMap", newBuilding);
   });
 
   socket.on("setBuilding", async (building) => {
@@ -479,8 +481,7 @@ io.on("connection", async (socket) => {
     // Save user to DB
     await newBuilding.save();
 
-    //    socket.broadcast.emit("changeMap", newBuilding);
-    socket.broadcast.to(building.address).emit("changeMap", newBuilding);
+    //    socket.broadcast.to(building.address).emit("changeMap", newBuilding);
 
     let count = buildingInfo.buildtime + 1;
     let interval = setInterval(async () => {
@@ -520,7 +521,8 @@ io.on("connection", async (socket) => {
           );
         }
         //        io.emit("buildingCompletion", build);
-        io.to(building.address).emit("buildingCompletion", build);
+        //        io.to(building.address).emit("buildingCompletion", build);
+        socket.emit("buildingCompletion", build);
         socket.emit("updateInfo");
         clearInterval(interval);
       }
@@ -583,7 +585,7 @@ io.on("connection", async (socket) => {
     );
 
     socket.emit("updateInfo");
-    socket.broadcast.to(address).emit("building_destroy", sno);
+    //    socket.broadcast.to(address).emit("building_destroy", sno);
   });
 
   socket.on("setLink", async (sno, address, url) => {

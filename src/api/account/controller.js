@@ -49,6 +49,27 @@ exports.createNewPlayer = async (req_, res_) => {
     return res_.send({ result: true, data: c_insertNewResult });
 }
 
+exports.setNftCount = async (req_, res_) => {
+    console.log("setNftCount log - 1 : ", req_.body);
+    try {
+        const _accountId = req_.body.accountId;
+        const _nftCount = req_.body.NftCount;
+
+        await Account.findOneAndUpdate(
+            { accountId: _accountId },
+            {
+                degenlandCount: _nftCount.degenlandCount,
+                tycoonCount: _nftCount.tycoonCount,
+                mogulCount: _nftCount.mogulCount,
+                investorCount: _nftCount.investorCount
+            }
+        );
+        return res_.send({ result: true, data: "success!" });
+    } catch (error) {
+        return res_.send({ result: false, error: 'Error detected in server progress!' });
+    }
+}
+
 exports.uploadAvatar = async (req_, res_) => {
     console.log("uploadAvatar log - 1 : ", req_.files);
     try {
